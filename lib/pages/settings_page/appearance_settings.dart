@@ -6,9 +6,12 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_acrylic/flutter_acrylic.dart';
 import '../../services/layout_preference_service.dart';
 import '../../services/player_background_service.dart';
+import '../../services/window_background_service.dart';
+import '../../services/auth_service.dart';
 import '../../widgets/custom_color_picker_dialog.dart';
 import '../../widgets/fluent_settings_card.dart';
 import 'player_background_dialog.dart';
+import 'window_background_dialog.dart';
 
 /// 外观设置组件
 class AppearanceSettings extends StatefulWidget {
@@ -219,6 +222,13 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
           onTap: () => _showPlayerBackgroundDialog(),
         ),
         FluentSettingsTile(
+          icon: fluent_ui.FluentIcons.photo_collection,
+          title: '窗口背景${(AuthService().currentUser?.isSponsor ?? false) ? '' : ' 🎁'}',
+          subtitle: _getWindowBackgroundSubtitle(),
+          trailing: const Icon(fluent_ui.FluentIcons.chevron_right, size: 12),
+          onTap: () => _showWindowBackgroundDialog(),
+        ),
+        FluentSettingsTile(
           icon: fluent_ui.FluentIcons.design,
           title: '桌面主题样式',
           subtitle: _getThemeFrameworkSubtitle(),
@@ -305,6 +315,25 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
       case ThemeFramework.fluent:
         return 'Fluent UI（Windows 原生风格）';
     }
+  }
+
+  String _getWindowBackgroundSubtitle() {
+    final service = WindowBackgroundService();
+    final isSponsor = AuthService().currentUser?.isSponsor ?? false;
+    
+    if (!isSponsor) {
+      return '赞助用户可设置自定义窗口背景图片';
+    }
+    
+    if (!service.enabled) {
+      return '未启用';
+    }
+    
+    if (service.hasValidImage) {
+      return '已启用 - 模糊度: ${service.blurAmount.toStringAsFixed(0)}';
+    }
+    
+    return '已启用但未设置图片';
   }
   
   String _windowEffectLabel(WindowEffect effect) {
@@ -624,6 +653,19 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
         ),
       );
     }
+  }
+
+  void _showWindowBackgroundDialog() {
+    fluent_ui.showDialog(
+      context: context,
+      builder: (context) => WindowBackgroundDialog(
+        onChanged: () {
+          if (mounted) {
+            setState(() {});
+          }
+        },
+      ),
+    );
   }
 
   void _showThemeFrameworkDialog() {

@@ -173,6 +173,29 @@ class PlayerService extends ChangeNotifier {
     } else {
       print('⚠️ [PlayerService] 本地代理服务器启动失败，将使用备用方案');
     }
+    
+    // 设置桌面歌词播放控制回调（Windows）
+    if (Platform.isWindows) {
+      DesktopLyricService().setPlaybackControlCallback((action) {
+        print('🎮 [PlayerService] 桌面歌词控制: $action');
+        switch (action) {
+          case 'play_pause':
+            if (isPlaying) {
+              pause();
+            } else {
+              resume();
+            }
+            break;
+          case 'previous':
+            playPrevious();
+            break;
+          case 'next':
+            playNext();
+            break;
+        }
+      });
+      print('✅ [PlayerService] 桌面歌词播放控制回调已设置');
+    }
 
     print('🎵 [PlayerService] 播放器初始化完成');
   }
@@ -998,6 +1021,17 @@ class PlayerService extends ChangeNotifier {
   /// 加载桌面/悬浮歌词（Windows/Android平台）
   void _loadLyricsForFloatingDisplay() {
     final currentSong = _currentSong;
+    final currentTrack = _currentTrack;
+    
+    // 更新桌面歌词的歌曲信息（Windows）
+    if (Platform.isWindows && DesktopLyricService().isVisible && currentTrack != null) {
+      DesktopLyricService().setSongInfo(
+        title: currentTrack.name,
+        artist: currentTrack.artists,
+        albumCover: currentTrack.picUrl,
+      );
+    }
+    
     if (currentSong == null || currentSong.lyric.isEmpty) {
       print('📝 [PlayerService] 悬浮歌词：无歌词可显示');
       _lyrics = [];

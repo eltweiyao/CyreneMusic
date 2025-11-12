@@ -71,12 +71,27 @@ class _MiniPlayerState extends State<MiniPlayer> with SingleTickerProviderStateM
       children: [
         Text(
           _formatDuration(player.position),
-          style: TextStyle(fontSize: 12, color: theme.resources.textFillColorSecondary),
+          style: TextStyle(
+            fontFamily: 'Microsoft YaHei',
+            fontSize: 12,
+            color: theme.resources.textFillColorSecondary,
+          ),
         ),
-        const Text(' / '),
+        Text(
+          ' / ',
+          style: TextStyle(
+            fontFamily: 'Microsoft YaHei',
+            fontSize: 12,
+            color: theme.resources.textFillColorSecondary,
+          ),
+        ),
         Text(
           _formatDuration(player.duration),
-          style: TextStyle(fontSize: 12, color: theme.resources.textFillColorSecondary),
+          style: TextStyle(
+            fontFamily: 'Microsoft YaHei',
+            fontSize: 12,
+            color: theme.resources.textFillColorSecondary,
+          ),
         ),
         const SizedBox(width: 12),
         fluent.IconButton(
@@ -456,26 +471,61 @@ class _MiniPlayerState extends State<MiniPlayer> with SingleTickerProviderStateM
                                       flex: 5,
                                       child: Align(
                                         alignment: Alignment.centerRight,
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Text(
-                                              _formatDuration(player.position),
-                                              style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
-                                            ),
-                                            const Text(' / '),
-                                            Text(
-                                              _formatDuration(player.duration),
-                                              style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            IconButton(
-                                              icon: Icon(Icons.queue_music_rounded, color: colorScheme.onSurface),
-                                              tooltip: '播放列表',
-                                              onPressed: () => _showQueueSheet(context),
-                                            ),
-                                          ],
-                                        ),
+                                        child: ThemeManager().isFluentFramework
+                                            ? Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Text(
+                                                    _formatDuration(player.position),
+                                                    style: TextStyle(
+                                                      fontFamily: 'Microsoft YaHei',
+                                                      fontSize: 12,
+                                                      color: fluent.FluentTheme.of(context).resources.textFillColorSecondary,
+                                                    ),
+                                                  ),
+                                                  Text(
+                                                    ' / ',
+                                                    style: TextStyle(
+                                                      fontFamily: 'Microsoft YaHei',
+                                                      fontSize: 12,
+                                                      color: fluent.FluentTheme.of(context).resources.textFillColorSecondary,
+                                                    ),
+                                                  ),
+                                                  Text(
+                                                    _formatDuration(player.duration),
+                                                    style: TextStyle(
+                                                      fontFamily: 'Microsoft YaHei',
+                                                      fontSize: 12,
+                                                      color: fluent.FluentTheme.of(context).resources.textFillColorSecondary,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  fluent.IconButton(
+                                                    icon: Icon(Icons.queue_music_rounded, color: fluent.FluentTheme.of(context).resources.textFillColorPrimary),
+                                                    onPressed: () => _showQueueSheet(context),
+                                                  ),
+                                                ],
+                                              )
+                                            : Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Text(
+                                                    _formatDuration(player.position),
+                                                    style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
+                                                  ),
+                                                  const Text(' / '),
+                                                  Text(
+                                                    _formatDuration(player.duration),
+                                                    style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  IconButton(
+                                                    icon: Icon(Icons.queue_music_rounded, color: colorScheme.onSurface),
+                                                    tooltip: '播放列表',
+                                                    onPressed: () => _showQueueSheet(context),
+                                                  ),
+                                                ],
+                                              ),
                                       ),
                                     ),
                                   ],
@@ -811,7 +861,42 @@ class _MiniPlayerState extends State<MiniPlayer> with SingleTickerProviderStateM
   Widget _buildSongInfo(dynamic song, dynamic track, BuildContext context) {
     final name = song?.name ?? track?.name ?? '未知歌曲';
     final artist = song?.arName ?? track?.artists ?? '未知艺术家';
+    final bool isFluent = ThemeManager().isFluentFramework;
 
+    // Fluent UI 主题下使用微软雅黑字体
+    if (isFluent) {
+      final fluentTheme = fluent.FluentTheme.of(context);
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            name,
+            style: TextStyle(
+              fontFamily: 'Microsoft YaHei',
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: fluentTheme.resources.textFillColorPrimary,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            artist,
+            style: TextStyle(
+              fontFamily: 'Microsoft YaHei',
+              fontSize: 12,
+              color: fluentTheme.resources.textFillColorSecondary,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      );
+    }
+
+    // Material Design 主题保持原样
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -948,6 +1033,8 @@ class _MiniPlayerState extends State<MiniPlayer> with SingleTickerProviderStateM
                   children: [
                     fluent.Slider(
                       value: temp,
+                      min: 0.0,
+                      max: 1.0,
                       onChanged: (v) {
                         setLocal(() => temp = v);
                         player.setVolume(v);
@@ -981,6 +1068,8 @@ class _MiniPlayerState extends State<MiniPlayer> with SingleTickerProviderStateM
                 children: [
                   Slider(
                     value: temp,
+                    min: 0.0,
+                    max: 1.0,
                     onChanged: (v) {
                       setLocal(() => temp = v);
                       player.setVolume(v);

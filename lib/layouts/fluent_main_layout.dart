@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:fluent_ui/fluent_ui.dart' as fluent_ui;
 import 'package:flutter/material.dart';
@@ -19,6 +20,7 @@ import '../services/auth_overlay_service.dart';
 import '../services/developer_mode_service.dart';
 import '../services/navigation_provider.dart';
 import '../services/home_search_service.dart';
+import '../services/window_background_service.dart';
 import '../utils/page_visibility_notifier.dart';
 import '../utils/theme_manager.dart';
 import '../widgets/mini_player.dart';
@@ -547,7 +549,7 @@ class _FluentMainLayoutState extends State<FluentMainLayout> with WindowListener
             Align(
               alignment: Alignment.centerRight,
               child: Padding(
-                padding: const EdgeInsets.only(right: 14.0),
+                padding: const EdgeInsets.only(right: 0),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -744,7 +746,43 @@ class _FluentMainLayoutState extends State<FluentMainLayout> with WindowListener
       }
     }
 
-    return content;
+    // 添加窗口背景（赞助用户独享）
+    return AnimatedBuilder(
+      animation: WindowBackgroundService(),
+      builder: (context, child) {
+        final bgService = WindowBackgroundService();
+        
+        // 如果启用了窗口背景且有有效图片
+        if (bgService.enabled && bgService.hasValidImage) {
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              // 背景图片层
+              Image.file(
+                bgService.getImageFile()!,
+                fit: BoxFit.cover,
+              ),
+              // 模糊和不透明度层
+              BackdropFilter(
+                filter: ImageFilter.blur(
+                  sigmaX: bgService.blurAmount,
+                  sigmaY: bgService.blurAmount,
+                ),
+                child: Container(
+                  color: Colors.black.withOpacity(1 - bgService.opacity),
+                ),
+              ),
+              // 内容层
+              child!,
+            ],
+          );
+        }
+        
+        // 没有背景时直接返回内容
+        return child!;
+      },
+      child: content,
+    );
   }
 }
 

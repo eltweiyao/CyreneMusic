@@ -4,6 +4,7 @@ import 'package:fluent_ui/fluent_ui.dart' as fluent_ui;
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../services/player_background_service.dart';
+import '../../services/auth_service.dart';
 import '../../utils/theme_manager.dart';
 
 /// 播放器背景设置对话框
@@ -22,6 +23,10 @@ class _PlayerBackgroundDialogState extends State<PlayerBackgroundDialog> {
     final backgroundService = PlayerBackgroundService();
     final currentType = backgroundService.backgroundType;
     final isFluent = Platform.isWindows && ThemeManager().isFluentFramework;
+    
+    // 检查用户是否为赞助用户
+    final authService = AuthService();
+    final isSponsor = authService.currentUser?.isSponsor ?? false;
 
     if (isFluent) {
       return fluent_ui.ContentDialog(
@@ -97,17 +102,32 @@ class _PlayerBackgroundDialogState extends State<PlayerBackgroundDialog> {
 
               const SizedBox(height: 8),
 
-              // 图片背景
+              // 图片背景（赞助用户独享）
               fluent_ui.RadioButton(
-                content: Text(
-                  backgroundService.imagePath != null ? '图片背景（已设置）' : '图片背景',
+                content: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      backgroundService.imagePath != null ? '图片背景（已设置）' : '图片背景',
+                    ),
+                    if (!isSponsor)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 4.0),
+                        child: Text(
+                          '🎁 赞助用户独享功能',
+                          style: TextStyle(fontSize: 11, color: Colors.orange),
+                        ),
+                      ),
+                  ],
                 ),
                 checked: currentType == PlayerBackgroundType.image,
-                onChanged: (v) async {
-                  await backgroundService.setBackgroundType(PlayerBackgroundType.image);
-                  setState(() {});
-                  widget.onChanged();
-                },
+                onChanged: isSponsor
+                    ? (v) async {
+                        await backgroundService.setBackgroundType(PlayerBackgroundType.image);
+                        setState(() {});
+                        widget.onChanged();
+                      }
+                    : null, // 非赞助用户禁用
               ),
               if (currentType == PlayerBackgroundType.image) ...[
                 const SizedBox(height: 8),
@@ -243,21 +263,45 @@ class _PlayerBackgroundDialogState extends State<PlayerBackgroundDialog> {
             
             const SizedBox(height: 8),
             
-            // 图片背景
+            // 图片背景（赞助用户独享）
             RadioListTile<PlayerBackgroundType>(
-              title: const Text('图片背景'),
+              title: Row(
+                children: [
+                  const Text('图片背景'),
+                  if (!isSponsor) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: Colors.orange, width: 1),
+                      ),
+                      child: const Text(
+                        '赞助独享',
+                        style: TextStyle(fontSize: 10, color: Colors.orange),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
               subtitle: Text(
-                backgroundService.imagePath != null
-                    ? '已设置自定义图片'
-                    : '未设置图片',
+                !isSponsor
+                    ? '成为赞助用户即可使用自定义图片背景'
+                    : (backgroundService.imagePath != null
+                        ? '已设置自定义图片'
+                        : '未设置图片'),
               ),
               value: PlayerBackgroundType.image,
               groupValue: currentType,
-              onChanged: (value) async {
-                await backgroundService.setBackgroundType(value!);
-                setState(() {});
-                widget.onChanged();
-              },
+              enabled: isSponsor, // 非赞助用户禁用
+              onChanged: isSponsor
+                  ? (value) async {
+                      await backgroundService.setBackgroundType(value!);
+                      setState(() {});
+                      widget.onChanged();
+                    }
+                  : null,
             ),
                 
             // 图片选择和模糊设置（仅在选择图片背景时显示）
