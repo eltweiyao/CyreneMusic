@@ -35,6 +35,14 @@ class _PlayerFluidCloudLyricsPanelState extends State<PlayerFluidCloudLyricsPane
   // 流体动画控制器
   late AnimationController _fluidAnimationController;
   late Animation<double> _fluidAnimation;
+  
+  // QQ弹弹效果动画控制器
+  late AnimationController _bounceAnimationController;
+  late Animation<double> _bounceAnimation;
+  
+  // 滚动速度追踪
+  double _scrollVelocity = 0.0;
+  int _lastLyricIndex = -1;
 
   @override
   void initState() {
@@ -47,6 +55,7 @@ class _PlayerFluidCloudLyricsPanelState extends State<PlayerFluidCloudLyricsPane
     _autoResetTimer?.cancel();
     _timeCapsuleAnimationController?.dispose();
     _fluidAnimationController.dispose();
+    _bounceAnimationController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -66,9 +75,9 @@ class _PlayerFluidCloudLyricsPanelState extends State<PlayerFluidCloudLyricsPane
       curve: Curves.easeInOut,
     ));
     
-    // 流体动画（持续循环）
+    // 流体动画（持续循环）- 使用更柔和的曲线
     _fluidAnimationController = AnimationController(
-      duration: const Duration(seconds: 3),
+      duration: const Duration(milliseconds: 2500),
       vsync: this,
     )..repeat(reverse: true);
     
@@ -77,7 +86,21 @@ class _PlayerFluidCloudLyricsPanelState extends State<PlayerFluidCloudLyricsPane
       end: 1.0,
     ).animate(CurvedAnimation(
       parent: _fluidAnimationController,
-      curve: Curves.easeInOut,
+      curve: Curves.easeInOutSine, // 更柔和的正弦曲线
+    ));
+    
+    // QQ弹弹效果动画
+    _bounceAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+    
+    _bounceAnimation = Tween<double>(
+      begin: 0.95,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _bounceAnimationController,
+      curve: Curves.elasticOut, // 弹性曲线
     ));
   }
 
@@ -87,6 +110,11 @@ class _PlayerFluidCloudLyricsPanelState extends State<PlayerFluidCloudLyricsPane
     
     // 如果当前播放索引变化且不处于手动模式，则滚动
     if (widget.currentLyricIndex != oldWidget.currentLyricIndex && !_isManualMode) {
+      // 触发QQ弹弹效果
+      if (_lastLyricIndex != widget.currentLyricIndex) {
+        _lastLyricIndex = widget.currentLyricIndex;
+        _bounceAnimationController.forward(from: 0.0);
+      }
       _scrollToCurrentLyric();
     }
   }
@@ -211,8 +239,11 @@ class _PlayerFluidCloudLyricsPanelState extends State<PlayerFluidCloudLyricsPane
         builder: (context, themeColor, child) {
           return LayoutBuilder(
             builder: (context, constraints) {
-              const int visibleLines = 7;
-              final itemHeight = constraints.maxHeight / visibleLines;
+              // 桌面端可视行数 - 动态调整以实现弹性间距
+              const int baseVisibleLines = 7;
+              // 根据滚动速度动态调整间距（速度越快，间距稍微增大，产生拉伸效果）
+              final velocityFactor = (1.0 + (_scrollVelocity.abs() * 0.0001)).clamp(1.0, 1.15);
+              final itemHeight = (constraints.maxHeight / baseVisibleLines) * velocityFactor;
               final viewportHeight = constraints.maxHeight;
               
               // 确保在非手动模式下滚动到正确位置
@@ -227,10 +258,11 @@ class _PlayerFluidCloudLyricsPanelState extends State<PlayerFluidCloudLyricsPane
                      if ((_scrollController.offset - targetOffset).abs() > viewportHeight * 2) {
                         _scrollController.jumpTo(targetOffset);
                      } else {
+                        // 使用平滑的缓出曲线，让滚动更丝滑
                         _scrollController.animateTo(
                           targetOffset,
-                          duration: const Duration(milliseconds: 600),
-                          curve: Curves.easeOutCubic,
+                          duration: const Duration(milliseconds: 800), // 增加动画时间
+                          curve: Curves.easeOutCubic, // 使用平滑的缓出曲线
                         );
                      }
                    }
@@ -244,6 +276,13 @@ class _PlayerFluidCloudLyricsPanelState extends State<PlayerFluidCloudLyricsPane
                     // 用户开始拖动
                     _startManualMode();
                   } else if (notification is ScrollUpdateNotification) {
+                    // 追踪滚动速度用于动态间距
+                    if (notification.scrollDelta != null) {
+                      setState(() {
+                        _scrollVelocity = notification.scrollDelta!;
+                      });
+                    }
+                    
                     if (_isManualMode) {
                       // 计算当前中心点的歌词索引
                       final centerOffset = _scrollController.offset + (viewportHeight / 2);
@@ -256,6 +295,11 @@ class _PlayerFluidCloudLyricsPanelState extends State<PlayerFluidCloudLyricsPane
                       }
                       _resetAutoTimer();
                     }
+                  } else if (notification is ScrollEndNotification) {
+                    // 滚动结束，重置速度
+                    setState(() {
+                      _scrollVelocity = 0.0;
+                    });
                   }
                   return false;
                 },
@@ -308,32 +352,40 @@ class _PlayerFluidCloudLyricsPanelState extends State<PlayerFluidCloudLyricsPane
                     
                     final distance = (index - displayIndex).abs();
                     
-                    // 视觉参数
-                    final opacity = (1.0 - (distance * 0.4)).clamp(0.1, 1.0);
-                    final scale = (1.0 - (distance * 0.05)).clamp(0.90, 1.0);
-                    final blur = distance == 0 ? 0.0 : 1.5;
+                    // 视觉参数 - 更柔和的过渡
+                    final opacity = (1.0 - (distance * 0.25)).clamp(0.15, 1.0); // 更柔和的不透明度衰减
+                    final scale = (1.0 - (distance * 0.04)).clamp(0.92, 1.0); // 更柔和的缩放衰减
+                    final blur = distance == 0 ? 0.0 : (distance * 0.6).clamp(0.0, 1.5); // 渐进式模糊
                     
                     return Center(
-                      child: Transform.scale(
-                        scale: scale,
-                        child: Opacity(
-                          opacity: opacity,
-                          child: ImageFiltered(
-                            imageFilter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-                            child: isActuallyPlaying // 只有真正播放的行才用高亮样式
-                                ? _buildFluidCloudLyricLine(
-                                    lyric, 
-                                    themeColor, 
-                                    itemHeight, 
-                                    true
-                                  )
-                                : _buildNormalLyricLine(
-                                    lyric, 
-                                    themeColor, 
-                                    itemHeight
-                                  ),
-                          ),
-                        ),
+                      child: AnimatedBuilder(
+                        animation: _bounceAnimation,
+                        builder: (context, child) {
+                          // 只对当前播放的歌词应用弹跳效果
+                          final bounceScale = isActuallyPlaying ? _bounceAnimation.value : 1.0;
+                          
+                          return Transform.scale(
+                            scale: scale * bounceScale,
+                            child: Opacity(
+                              opacity: opacity,
+                              child: ImageFiltered(
+                                imageFilter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+                                child: isActuallyPlaying // 只有真正播放的行才用高亮样式
+                                    ? _buildFluidCloudLyricLine(
+                                        lyric, 
+                                        themeColor, 
+                                        itemHeight, 
+                                        true
+                                      )
+                                    : _buildNormalLyricLine(
+                                        lyric, 
+                                        themeColor, 
+                                        itemHeight
+                                      ),
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     );
                   },

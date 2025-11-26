@@ -3,7 +3,9 @@ import 'package:fluent_ui/fluent_ui.dart' as fluent_ui;
 import '../../widgets/fluent_settings_card.dart';
 import '../../services/auth_service.dart';
 import '../../services/netease_login_service.dart';
+import '../../services/kugou_login_service.dart';
 import 'netease_qr_dialog.dart';
+import 'kugou_qr_dialog.dart';
 
 /// 第三方账号管理组件
 class ThirdPartyAccounts extends StatefulWidget {
@@ -114,6 +116,57 @@ class _ThirdPartyAccountsState extends State<ThirdPartyAccounts> {
               },
             ),
           ),
+          const SizedBox(height: 8),
+          // 酷狗音乐账号卡片
+          fluent_ui.Card(
+            padding: fluent_ui.EdgeInsets.zero,
+            child: FutureBuilder<Map<String, dynamic>>(
+              key: ValueKey(_refreshKey),
+              future: KugouLoginService().fetchBindings(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const fluent_ui.ListTile(
+                    leading: Icon(Icons.music_note, size: 20),
+                    title: Text('酷狗音乐'),
+                    subtitle: Text('加载中...'),
+                    trailing: fluent_ui.ProgressRing(),
+                  );
+                }
+
+                final bindings = snapshot.data?['data'] as Map<String, dynamic>?;
+                final kugou = bindings?['kugou'] as Map<String, dynamic>?;
+                final bound = (kugou != null) && (kugou['bound'] == true);
+                final username = kugou?['username'] as String?;
+                final avatar = kugou?['avatar'] as String?;
+                final kugouUserId = kugou?['userId'] as String?;
+
+                return fluent_ui.ListTile(
+                  leading: avatar != null
+                      ? CircleAvatar(backgroundImage: NetworkImage(avatar))
+                      : const Icon(Icons.music_note, size: 20),
+                  title: const Text('酷狗音乐'),
+                  subtitle: bound
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('昵称: ${username ?? '-'}'),
+                            Text('用户ID: ${kugouUserId ?? '-'}'),
+                          ],
+                        )
+                      : const Text('未绑定'),
+                  trailing: bound
+                      ? fluent_ui.Button(
+                          onPressed: () => _showUnbindKugouDialogFluent(context),
+                          child: const Text('解绑'),
+                        )
+                      : fluent_ui.FilledButton(
+                          onPressed: () => _bindKugou(context, user.id),
+                          child: const Text('去绑定'),
+                        ),
+                );
+              },
+            ),
+          ),
         ],
       );
     }
@@ -212,6 +265,73 @@ class _ThirdPartyAccountsState extends State<ThirdPartyAccounts> {
                           )
                         : FilledButton.icon(
                             onPressed: () => _bindNetease(context, user.id),
+                            icon: const Icon(Icons.qr_code, size: 18),
+                            label: const Text('去绑定'),
+                            style: FilledButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
+                          ),
+                  );
+                },
+              ),
+              const Divider(height: 1),
+              
+              // 酷狗音乐账号
+              FutureBuilder<Map<String, dynamic>>(
+                key: ValueKey(_refreshKey),
+                future: KugouLoginService().fetchBindings(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const ListTile(
+                      leading: CircleAvatar(
+                        child: Icon(Icons.music_note),
+                      ),
+                      title: Text('酷狗音乐'),
+                      subtitle: Text('加载中...'),
+                      trailing: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    );
+                  }
+
+                  final bindings = snapshot.data?['data'] as Map<String, dynamic>?;
+                  final kugou = bindings?['kugou'] as Map<String, dynamic>?;
+                  final bound = (kugou != null) && (kugou['bound'] == true);
+                  final username = kugou?['username'] as String?;
+                  final avatar = kugou?['avatar'] as String?;
+                  final kugouUserId = kugou?['userId'] as String?;
+
+                  return ListTile(
+                    leading: CircleAvatar(
+                      backgroundImage: avatar != null ? NetworkImage(avatar) : null,
+                      child: avatar == null ? const Icon(Icons.music_note) : null,
+                    ),
+                    title: const Text('酷狗音乐'),
+                    subtitle: bound
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('昵称: ${username ?? '-'}'),
+                              Text(
+                                '用户ID: ${kugouUserId ?? '-'}',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                          )
+                        : const Text('未绑定'),
+                    trailing: bound
+                        ? OutlinedButton.icon(
+                            onPressed: () => _showUnbindKugouDialog(context),
+                            icon: const Icon(Icons.link_off, size: 18),
+                            label: const Text('解绑'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
+                          )
+                        : FilledButton.icon(
+                            onPressed: () => _bindKugou(context, user.id),
                             icon: const Icon(Icons.qr_code, size: 18),
                             label: const Text('去绑定'),
                             style: FilledButton.styleFrom(
@@ -375,6 +495,152 @@ class _ThirdPartyAccountsState extends State<ThirdPartyAccounts> {
                 messenger.showSnackBar(
                   SnackBar(
                     content: Text(ok ? '已解绑网易云账号' : '解绑失败，请重试'),
+                    backgroundColor: ok ? Colors.orange : Colors.red,
+                  ),
+                );
+              }
+            },
+            child: const Text('解绑'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<bool> _waitUntilKugouBound({int maxAttempts = 6, Duration interval = const Duration(milliseconds: 500)}) async {
+    for (var i = 0; i < maxAttempts; i++) {
+      try {
+        final resp = await KugouLoginService().fetchBindings();
+        final data = resp['data'] as Map<String, dynamic>?;
+        final kugou = data != null ? data['kugou'] as Map<String, dynamic>? : null;
+        final bound = (kugou != null) && (kugou['bound'] == true);
+        if (bound) return true;
+      } catch (_) {}
+      await Future.delayed(interval);
+    }
+    return false;
+  }
+
+  Future<void> _bindKugou(BuildContext context, int userId) async {
+    final success = await showKugouQrDialog(context, userId);
+    if (success == true) {
+      // 一些后端在返回 4 后需要数百毫秒写入绑定结果，这里短暂轮询确保 UI 能立即得到最新状态
+      await _waitUntilKugouBound();
+      _refresh();
+      if (context.mounted) {
+        final messenger = ScaffoldMessenger.maybeOf(context);
+        if (messenger != null) {
+          messenger.showSnackBar(
+            const SnackBar(
+              content: Text('酷狗音乐账号绑定成功！现在可以为您定制首页了'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  void _showUnbindKugouDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded),
+            SizedBox(width: 8),
+            Text('解绑酷狗音乐账号'),
+          ],
+        ),
+        content: const Text('解绑后将无法为您定制首页推荐内容，确定要解绑吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              
+              // 显示加载提示
+              if (context.mounted) {
+                final messenger = ScaffoldMessenger.maybeOf(context);
+                if (messenger != null) {
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Row(
+                        children: [
+                          SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          ),
+                          SizedBox(width: 16),
+                          Text('正在解绑...'),
+                        ],
+                      ),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                }
+              }
+
+              final ok = await KugouLoginService().unbindKugou();
+              
+              if (context.mounted) {
+                final messenger = ScaffoldMessenger.maybeOf(context);
+                if (messenger != null) {
+                  messenger.hideCurrentSnackBar();
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text(ok ? '已解绑酷狗音乐账号' : '解绑失败，请重试'),
+                      backgroundColor: ok ? Colors.orange : Colors.red,
+                    ),
+                  );
+                }
+                
+                if (ok) {
+                  _refresh();
+                }
+              }
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('解绑'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showUnbindKugouDialogFluent(BuildContext context) {
+    fluent_ui.showDialog(
+      context: context,
+      builder: (context) => fluent_ui.ContentDialog(
+        title: const Text('解绑酷狗音乐账号'),
+        content: const Text('解绑后将无法为您定制首页推荐内容，确定要解绑吗？'),
+        actions: [
+          fluent_ui.Button(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          fluent_ui.FilledButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              final ok = await KugouLoginService().unbindKugou();
+              if (ok) {
+                _refresh();
+              }
+              final messenger = ScaffoldMessenger.maybeOf(context);
+              if (messenger != null) {
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(ok ? '已解绑酷狗音乐账号' : '解绑失败，请重试'),
                     backgroundColor: ok ? Colors.orange : Colors.red,
                   ),
                 );
