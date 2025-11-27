@@ -423,6 +423,14 @@ class MusicService extends ChangeNotifier {
               return null;
             }
             
+            // 调试：打印酷狗音乐返回的 song 对象
+            print('🔍 [MusicService] 酷狗音乐 song 对象:');
+            print('   name: ${song['name']}');
+            print('   singer: ${song['singer']}');
+            print('   album: ${song['album']}');
+            print('   pic: ${song['pic']}');
+            print('   url: ${song['url'] != null ? '已获取' : '无'}');
+            
             // 处理 bitrate（可能是 int 或 String）
             final bitrateValue = song['bitrate'];
             final bitrate = bitrateValue != null ? '${bitrateValue}kbps' : '未知';
@@ -453,6 +461,7 @@ class MusicService extends ChangeNotifier {
           print('   🆔 ID: ${songDetail.id} (类型: ${songDetail.id.runtimeType})');
           print('   🎵 艺术家: ${songDetail.arName}');
           print('   💿 专辑: ${songDetail.alName}');
+          print('   🖼️ 封面: ${songDetail.pic.isNotEmpty ? songDetail.pic : "无"}');
           print('   🎼 音质: ${songDetail.level}');
           print('   📦 大小: ${songDetail.size}');
           print('   🔗 URL: ${songDetail.url.isNotEmpty ? "已获取" : "无"}');

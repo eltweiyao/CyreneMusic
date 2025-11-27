@@ -44,6 +44,6 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 /website/
-/backend/
 /kugouapi_github/
 /data/
+/backend/
