@@ -57,6 +57,7 @@ dependencies:
   
   # Color extraction from images
   palette_generator: ^0.3.3
+  image: ^4.3.0  # Pure Dart image processing for isolate-safe color extraction
   
   # Cryptography for cache encryption
   crypto: ^3.0.3
