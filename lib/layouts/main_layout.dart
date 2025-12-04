@@ -1,8 +1,10 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import '../widgets/custom_title_bar.dart';
+import '../widgets/cupertino/cupertino_bottom_nav.dart';
 import '../widgets/mini_player.dart';
 import '../pages/home_page.dart';
 import '../pages/discover_page.dart';
@@ -139,6 +141,8 @@ class _MainLayoutState extends State<MainLayout>
     LayoutPreferenceService().addListener(_onLayoutPreferenceChanged);
     // 监听开发者模式变化
     DeveloperModeService().addListener(_onDeveloperModeChanged);
+    // 监听主题变化（包括移动端主题框架切换）
+    ThemeManager().addListener(_onThemeChanged);
 
     // 初始化系统主题色（在 build 完成后执行）
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -158,6 +162,7 @@ class _MainLayoutState extends State<MainLayout>
     AuthService().removeListener(_onAuthChanged);
     LayoutPreferenceService().removeListener(_onLayoutPreferenceChanged);
     DeveloperModeService().removeListener(_onDeveloperModeChanged);
+    ThemeManager().removeListener(_onThemeChanged);
     super.dispose();
   }
 
@@ -173,6 +178,17 @@ class _MainLayoutState extends State<MainLayout>
   }
 
   void _onLayoutPreferenceChanged() {
+    if (mounted) {
+      // 使用 addPostFrameCallback 避免在构建期间调用 setState
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {});
+        }
+      });
+    }
+  }
+
+  void _onThemeChanged() {
     if (mounted) {
       // 使用 addPostFrameCallback 避免在构建期间调用 setState
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -423,6 +439,7 @@ class _MainLayoutState extends State<MainLayout>
   /// 构建移动端布局（Android/iOS）
   Widget _buildMobileLayout(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isCupertinoUI = (Platform.isIOS || Platform.isAndroid) && ThemeManager().isCupertinoFramework;
 
     return PopScope(
       canPop: false, // 始终拦截返回键
@@ -459,8 +476,138 @@ class _MainLayoutState extends State<MainLayout>
             ),
           ],
         ),
-        bottomNavigationBar: _buildGlassBottomNavigationBar(context),
+        bottomNavigationBar: isCupertinoUI 
+            ? _buildCupertinoTabBar(context)
+            : _buildGlassBottomNavigationBar(context),
       ),
+    );
+  }
+
+  /// 构建 Cupertino 风格的底部导航栏
+  Widget _buildCupertinoTabBar(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final orientation = MediaQuery.of(context).orientation;
+    final bool isLandscape = orientation == Orientation.landscape;
+    final int supportIndex = _supportIndex;
+    final int myIndex = _pages.indexWhere((w) => w is MyPage);
+    
+    // 计算当前选中的 tab 索引
+    int navSelectedIndex() {
+      if (_selectedIndex == 0) return 0; // 首页
+      if (_selectedIndex == 1) return 1; // 发现
+      if (_selectedIndex == myIndex) return 2; // 我的
+      if (isLandscape && _selectedIndex == supportIndex) return 3; // 支持
+      return isLandscape ? 4 : 3; // 更多
+    }
+    
+    // 构建 tab items
+    List<BottomNavigationBarItem> items = [
+      BottomNavigationBarItem(
+        icon: const Icon(CupertinoIcons.house),
+        activeIcon: const Icon(CupertinoIcons.house_fill),
+        label: '首页',
+      ),
+      BottomNavigationBarItem(
+        icon: const Icon(CupertinoIcons.compass),
+        activeIcon: const Icon(CupertinoIcons.compass_fill),
+        label: '发现',
+      ),
+      BottomNavigationBarItem(
+        icon: const Icon(CupertinoIcons.person),
+        activeIcon: const Icon(CupertinoIcons.person_fill),
+        label: '我的',
+      ),
+      if (isLandscape)
+        BottomNavigationBarItem(
+          icon: const Icon(CupertinoIcons.heart),
+          activeIcon: const Icon(CupertinoIcons.heart_fill),
+          label: '支持',
+        ),
+      BottomNavigationBarItem(
+        icon: const Icon(CupertinoIcons.ellipsis),
+        activeIcon: const Icon(CupertinoIcons.ellipsis),
+        label: '更多',
+      ),
+    ];
+    
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(
+            color: isDark 
+                ? CupertinoColors.systemGrey.withOpacity(0.3)
+                : CupertinoColors.systemGrey.withOpacity(0.2),
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: ClipRect(
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: CupertinoTabBar(
+            currentIndex: navSelectedIndex(),
+            onTap: (int tabIndex) async {
+              final int moreTab = items.length - 1;
+              if (tabIndex == moreTab) {
+                await _openCupertinoMoreSheet(context);
+                return;
+              }
+              
+              int targetPageIndex = _selectedIndex;
+              if (tabIndex == 0) targetPageIndex = 0; // 首页
+              if (tabIndex == 1) targetPageIndex = 1; // 发现
+              if (tabIndex == 2) targetPageIndex = myIndex; // 我的
+              if (isLandscape && tabIndex == 3) targetPageIndex = supportIndex; // 支持
+              
+              setState(() {
+                _selectedIndex = targetPageIndex;
+              });
+              PageVisibilityNotifier().setCurrentPage(targetPageIndex);
+            },
+            items: items,
+            activeColor: ThemeManager.iosBlue,
+            inactiveColor: CupertinoColors.systemGrey,
+            backgroundColor: isDark 
+                ? CupertinoColors.black.withOpacity(0.7)
+                : CupertinoColors.white.withOpacity(0.7),
+          ),
+        ),
+      ),
+    );
+  }
+  
+  /// Cupertino 风格的更多菜单
+  Future<void> _openCupertinoMoreSheet(BuildContext context) async {
+    final orientation = MediaQuery.of(context).orientation;
+    final bool isPortrait = orientation == Orientation.portrait;
+    
+    await showCupertinoMoreSheet(
+      context: context,
+      onHistoryTap: () {
+        setState(() => _selectedIndex = 2);
+        PageVisibilityNotifier().setCurrentPage(2);
+      },
+      onLocalTap: () {
+        setState(() => _selectedIndex = 3);
+        PageVisibilityNotifier().setCurrentPage(3);
+      },
+      onSettingsTap: () {
+        final idx = _settingsIndex;
+        setState(() => _selectedIndex = idx);
+        PageVisibilityNotifier().setCurrentPage(idx);
+        DeveloperModeService().onSettingsClicked();
+      },
+      onSupportTap: () {
+        final idx = _supportIndex;
+        setState(() => _selectedIndex = idx);
+        PageVisibilityNotifier().setCurrentPage(idx);
+      },
+      onDevTap: () {
+        setState(() => _selectedIndex = _pages.length - 1);
+        PageVisibilityNotifier().setCurrentPage(_pages.length - 1);
+      },
+      showSupport: isPortrait,
+      showDev: DeveloperModeService().isDeveloperMode,
     );
   }
 

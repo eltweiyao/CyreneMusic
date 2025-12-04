@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:audio_service/audio_service.dart';
 import 'player_service.dart';
 import 'android_floating_lyric_service.dart';
+import 'android_media_notification_service.dart';
 
 /// Android 媒体通知处理器
 /// 使用 audio_service 包实现 Android 系统通知栏的媒体控件
@@ -29,6 +30,9 @@ class CyreneAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler
     // 启动悬浮歌词后台更新定时器（仅 Android）
     if (Platform.isAndroid) {
       _startLyricUpdateTimer();
+
+      // 启动自定义 Android 媒体通知服务（复用 audio_service 的 MediaSession）
+      AndroidMediaNotificationService().start();
     }
     
     // 启动进度条更新定时器
@@ -391,6 +395,14 @@ class CyreneAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler
   @override
   Future<void> customAction(String name, [Map<String, dynamic>? extras]) async {
     // 自定义操作处理
+    if (!Platform.isAndroid) return;
+
+    if (name == 'toggle_floating_lyric') {
+      // 来自系统媒体控件“词”按钮的指令
+      print('🎮 [AudioHandler] 系统媒体控件: 切换悬浮歌词');
+      await AndroidFloatingLyricService().toggle();
+      return;
+    }
   }
 }
 

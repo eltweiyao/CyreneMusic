@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:fluent_ui/fluent_ui.dart' as fluent_ui;
 import '../utils/theme_manager.dart';
+import '../widgets/cupertino/cupertino_settings_widgets.dart';
 import '../services/url_service.dart';
 import '../services/auth_service.dart';
 import '../services/location_service.dart';
@@ -180,9 +182,14 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     // 检查是否使用 Fluent UI
     final isFluentUI = Platform.isWindows && ThemeManager().isFluentFramework;
+    final isCupertinoUI = (Platform.isIOS || Platform.isAndroid) && ThemeManager().isCupertinoFramework;
     
     if (isFluentUI) {
       return _buildFluentUI(context);
+    }
+    
+    if (isCupertinoUI) {
+      return _buildCupertinoUI(context);
     }
     
     return _buildMaterialUI(context);
@@ -295,6 +302,116 @@ class _SettingsPageState extends State<SettingsPage> {
 
   /// 构建 Material UI 子页面
   Widget _buildMaterialSubPage(BuildContext context, ColorScheme colorScheme) {
+    switch (_currentSubPage) {
+      case SettingsSubPage.appearance:
+        return AppearanceSettingsContent(onBack: closeSubPage, embed: true);
+      case SettingsSubPage.thirdPartyAccounts:
+        return ThirdPartyAccountsContent(onBack: closeSubPage, embed: true);
+      case SettingsSubPage.lyric:
+        return LyricSettingsContent(onBack: closeSubPage, embed: true);
+      case SettingsSubPage.none:
+        return const SizedBox.shrink();
+    }
+  }
+
+  /// 构建 Cupertino UI 版本（iOS 风格）
+  Widget _buildCupertinoUI(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final backgroundColor = isDark ? CupertinoColors.black : CupertinoColors.systemGroupedBackground;
+    
+    return CupertinoPageScaffold(
+      backgroundColor: backgroundColor,
+      navigationBar: CupertinoNavigationBar(
+        backgroundColor: backgroundColor.withOpacity(0.8),
+        border: null,
+        leading: _currentSubPage != SettingsSubPage.none
+            ? CupertinoButton(
+                padding: EdgeInsets.zero,
+                onPressed: closeSubPage,
+                child: const Icon(CupertinoIcons.back),
+              )
+            : null,
+        middle: Text(_getPageTitle()),
+      ),
+      child: SafeArea(
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          transitionBuilder: (Widget child, Animation<double> animation) {
+            final offset = child.key == const ValueKey('main_settings')
+                ? const Offset(-1.0, 0.0)
+                : const Offset(1.0, 0.0);
+                
+            return SlideTransition(
+              position: Tween<Offset>(
+                begin: offset,
+                end: Offset.zero,
+              ).animate(CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeInOutCubic,
+              )),
+              child: child,
+            );
+          },
+          child: _currentSubPage != SettingsSubPage.none
+              ? KeyedSubtree(
+                  key: ValueKey('sub_settings_${_currentSubPage.name}'),
+                  child: _buildCupertinoSubPage(context),
+                )
+              : KeyedSubtree(
+                  key: const ValueKey('main_settings'),
+                  child: CupertinoScrollbar(
+                    child: ListView(
+                      children: [
+                        // 用户卡片
+                        CupertinoSettingsSection(
+                          children: [UserCard()],
+                        ),
+                        
+                        // 第三方账号管理
+                        ThirdPartyAccounts(onTap: () => openSubPage(SettingsSubPage.thirdPartyAccounts)),
+                        
+                        // 外观设置
+                        AppearanceSettings(onTap: () => openSubPage(SettingsSubPage.appearance)),
+                        
+                        // 歌词设置（仅 Android 平台）
+                        LyricSettings(onTap: () => openSubPage(SettingsSubPage.lyric)),
+                        
+                        // 播放设置
+                        CupertinoSettingsSection(
+                          header: '播放',
+                          children: const [PlaybackSettings()],
+                        ),
+                        
+                        // 网络设置
+                        CupertinoSettingsSection(
+                          header: '网络',
+                          children: const [NetworkSettings()],
+                        ),
+                        
+                        // 存储设置
+                        CupertinoSettingsSection(
+                          header: '存储',
+                          children: const [StorageSettings()],
+                        ),
+                        
+                        // 关于
+                        CupertinoSettingsSection(
+                          header: '关于',
+                          children: const [AboutSettings()],
+                        ),
+                        
+                        const SizedBox(height: 40),
+                      ],
+                    ),
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+  
+  /// 构建 Cupertino UI 子页面
+  Widget _buildCupertinoSubPage(BuildContext context) {
     switch (_currentSubPage) {
       case SettingsSubPage.appearance:
         return AppearanceSettingsContent(onBack: closeSubPage, embed: true);

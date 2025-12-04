@@ -13,11 +13,20 @@ class MainActivity : AudioServiceActivity() {
         
         try {
             // 注册悬浮歌词插件
-            val plugin = FloatingLyricPlugin()
-            flutterEngine.plugins.add(plugin)
-            Log.d("MainActivity", "✅ 悬浮歌词插件注册成功: ${plugin::class.java.simpleName}")
+            val floatingPlugin = FloatingLyricPlugin()
+            flutterEngine.plugins.add(floatingPlugin)
+            Log.d("MainActivity", "✅ 悬浮歌词插件注册成功: ${floatingPlugin::class.java.simpleName}")
         } catch (e: Exception) {
             Log.e("MainActivity", "❌ 悬浮歌词插件注册失败: ${e.message}", e)
+        }
+
+        try {
+            // 注册 Android 媒体通知插件
+            val mediaNotificationPlugin = AndroidMediaNotificationPlugin()
+            flutterEngine.plugins.add(mediaNotificationPlugin)
+            Log.d("MainActivity", "✅ 媒体通知插件注册成功: ${mediaNotificationPlugin::class.java.simpleName}")
+        } catch (e: Exception) {
+            Log.e("MainActivity", "❌ 媒体通知插件注册失败: ${e.message}", e)
         }
     }
 }

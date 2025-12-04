@@ -82,4 +82,7 @@ flutter {
 dependencies {
     // 核心库脱糖支持（flutter_local_notifications 需要 2.1.4+）
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+
+    // 媒体兼容库：提供 MediaBrowserCompat / MediaControllerCompat / MediaStyle 等
+    implementation("androidx.media:media:1.7.0")
 }
