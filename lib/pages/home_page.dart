@@ -41,6 +41,7 @@ import 'home_page/home_overlay_controller.dart';
 import 'home_page/home_widgets.dart';
 import '../services/global_back_handler_service.dart';
 import 'home_page/toplist_detail.dart';
+import 'home_page/charts_tab.dart';
 import '../widgets/cupertino/cupertino_home_widgets.dart';
 
 /// 首页 - 展示音乐和视频内容
@@ -1681,65 +1682,12 @@ class _HomePageState extends State<HomePage>
               },
             ),
           ] else ...[
-            if (MusicService().isLoading)
-              const LoadingSection()
-            else if (MusicService().errorMessage != null)
-              const ErrorSection()
-            else if (MusicService().toplists.isEmpty)
-              const EmptySection()
-            else ...[
-              BannerSection(
-                cachedRandomTracks: _cachedRandomTracks,
-                bannerController: _bannerController,
-                currentBannerIndex: _currentBannerIndex,
-                onPageChanged: (index) {
-                  setState(() {
-                    _currentBannerIndex = index;
-                  });
-                  print('🎵 [HomePage] 页面切换到: $index');
-                  _restartBannerTimer();
-                },
-                checkLoginStatus: _checkLoginStatus,
-              ),
-              const SizedBox(height: 32),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final useVerticalLayout =
-                      constraints.maxWidth < 600 || Platform.isAndroid;
-
-                  if (useVerticalLayout) {
-                    return Column(
-                      children: [
-                        const HistorySection(),
-                        const SizedBox(height: 16),
-                        GuessYouLikeSection(
-                          guessYouLikeFuture: _guessYouLikeFuture,
-                        ),
-                      ],
-                    );
-                  } else {
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Expanded(child: HistorySection()),
-                        const SizedBox(width: 24),
-                        Expanded(
-                          child: GuessYouLikeSection(
-                            guessYouLikeFuture: _guessYouLikeFuture,
-                          ),
-                        ),
-                      ],
-                    );
-                  }
-                },
-              ),
-              const SizedBox(height: 32),
-              ToplistsGrid(
-                checkLoginStatus: _checkLoginStatus,
-                showToplistDetail: (toplist) =>
-                    showToplistDetail(context, toplist),
-              ),
-            ],
+            ChartsTab(
+              cachedRandomTracks: _cachedRandomTracks,
+              checkLoginStatus: _checkLoginStatus,
+              guessYouLikeFuture: _guessYouLikeFuture,
+              onRefresh: () => _handleRefreshPressed(context),
+            ),
           ],
         ]),
       ),
