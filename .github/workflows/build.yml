@@ -79,16 +79,14 @@ jobs:
         run: flutter pub get
 
       - name: Build APK
-        run: flutter build apk --release --split-per-abi
+        run: flutter build apk --release --target-platform android-arm64 --split-per-abi
 
       - name: Upload APK artifacts
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
           path: |
-            build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
             build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
-            build/app/outputs/flutter-apk/app-x86_64-release.apk
 
   # Windows 构建
   build-windows:
@@ -149,6 +147,7 @@ jobs:
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-good \
             gstreamer1.0-plugins-bad gstreamer1.0-libav \
             libayatana-appindicator3-dev \
+            libmpv-dev \
             libasound2-dev
 
       - name: Setup Flutter
